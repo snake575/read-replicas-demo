@@ -1,29 +1,31 @@
 import { PrismaClient } from '@prisma/client'
 import { readReplicas } from '@prisma/extension-read-replicas'
 
-const prisma = new PrismaClient()
-  .$extends(readReplicas({
-    url: process.env.DATABASE_REPLICA_URL!
-  }))
+const prisma = new PrismaClient().$extends(
+  readReplicas({
+    url: process.env.DATABASE_REPLICA_URL!,
+  }),
+)
 
-// A `main` function so that we can use async/await
-async function main() {
-  await prisma.post.createMany({
-    data: [
-      { title: 'Prisma Client now supports read replication' },
-      { title: 'Try out the new `@prisma/extension-read-replicas` extension with Neon'}
-    ]
-  })
+await prisma.user.deleteMany()
+await prisma.post.deleteMany()
 
-  console.log('Feed from Replica: ', await prisma.post.findMany())
-  console.log('Feed from Primary: ', await prisma.$primary().post.findMany())
-}
+await prisma.user.create({
+  data: {
+    email: 'my@email.com',
+    posts: {
+      create: {
+        title: 'My post',
+      },
+    },
+  },
+})
 
-main()
-  .catch(async (e) => {
-    console.error(e)
-    process.exit(1)
-  })
-  .finally(async () => {
-    await prisma.$disconnect()
-  })
+console.log(
+  'Post Author from Primary: ',
+  await prisma.$primary().post.findFirst().author(),
+)
+console.log(
+  'Post Author from Replica: ',
+  await prisma.post.findFirst().author(),
+)
